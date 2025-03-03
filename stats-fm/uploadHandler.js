@@ -68,49 +68,91 @@ const processJsonFile = async (filePath, userId, db) => {
     // Process each track entry
     for (const entry of jsonData) {
       await new Promise((resolve, reject) => {
-        db.run(`
-          INSERT INTO track_plays (
-            user_id,
-            track_name,
-            artist_name,
-            album_name,
-            played_at,
-            duration_ms,
-            platform,
-            conn_country,
-            master_metadata_track_name,
-            master_metadata_album_artist_name,
-            master_metadata_album_album_name,
-            spotify_track_uri,
-            reason_start,
-            reason_end,
-            shuffle,
-            skipped,
-            offline,
-            incognito_mode
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
+        // Check for duplicate entry first
+        const checkDuplicate = `
+          SELECT id FROM track_plays 
+          WHERE user_id = ? 
+            AND master_metadata_track_name = ? 
+            AND master_metadata_album_artist_name = ? 
+            AND master_metadata_album_album_name = ? 
+            AND played_at = ?
+            AND duration_ms = ?
+            AND platform = ?
+            AND conn_country = ?
+            AND spotify_track_uri = ?`;
+
+        const checkParams = [
           userId,
-          entry.master_metadata_track_name,
-          entry.master_metadata_album_artist_name,
-          entry.master_metadata_album_album_name,
+          entry.master_metadata_track_name || null,
+          entry.master_metadata_album_artist_name || null,
+          entry.master_metadata_album_album_name || null,
           entry.ts,
           entry.ms_played || 0,
           entry.platform || null,
           entry.conn_country || null,
-          entry.master_metadata_track_name,
-          entry.master_metadata_album_artist_name,
-          entry.master_metadata_album_album_name,
-          entry.spotify_track_uri || null,
-          entry.reason_start || null,
-          entry.reason_end || null,
-          entry.shuffle || false,
-          entry.skipped || false,
-          entry.offline || false,
-          entry.incognito_mode || false
-        ], (err) => {
-          if (err) reject(err);
-          else resolve();
+          entry.spotify_track_uri || null
+        ];
+
+        db.get(checkDuplicate, checkParams, (err, row) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          // Skip if duplicate found
+          if (row) {
+            resolve();
+            return;
+          }
+
+          // Insert if not a duplicate
+          const insertEntry = `
+            INSERT INTO track_plays (
+              user_id,
+              track_name,
+              artist_name,
+              album_name,
+              played_at,
+              duration_ms,
+              platform,
+              conn_country,
+              master_metadata_track_name,
+              master_metadata_album_artist_name,
+              master_metadata_album_album_name,
+              spotify_track_uri,
+              reason_start,
+              reason_end,
+              shuffle,
+              skipped,
+              offline,
+              incognito_mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+          const insertParams = [
+            userId,
+            entry.master_metadata_track_name || null,
+            entry.master_metadata_album_artist_name || null,
+            entry.master_metadata_album_album_name || null,
+            entry.ts,
+            entry.ms_played || 0,
+            entry.platform || null,
+            entry.conn_country || null,
+            entry.master_metadata_track_name || null,
+            entry.master_metadata_album_artist_name || null,
+            entry.master_metadata_album_album_name || null,
+            entry.spotify_track_uri || null,
+            entry.reason_start || null,
+            entry.reason_end || null,
+            entry.shuffle || false,
+            entry.skipped || false,
+            entry.offline || false,
+            entry.incognito_mode || false
+          ];
+
+          db.run(insertEntry, insertParams, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
         });
       });
     }

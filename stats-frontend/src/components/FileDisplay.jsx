@@ -2,9 +2,6 @@ import React from 'react';
 import { format } from 'date-fns';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-import { format } from 'date-fns';
-import 'bootstrap/dist/css/bootstrap.min.css';
-
 
 
 const FileDisplay = ({ data }) => {
